@@ -144,39 +144,64 @@ function M.setup(spec, opts)
   -- 加载lazy.core.loader模块，负责加载插件
   local Loader = require("lazy.core.loader")
 
+  -- package.loaders表中的第3个位置插入Loader.loader
   table.insert(package.loaders, 3, Loader.loader)
 
+  -- 检查用户是否在配置中启用了加载器分析
+  -- 检查vim.loader功能是否可用，只有在0.9.1+版本中可用。
+  -- 如果可用，则vim.loader._profile({ loaders = true })
+  -- 否则，Cache._profile_loaders()
   if vim.tbl_get(opts, "profiling", "loader") then
     if vim.loader then
+      -- 0.9.1+使用vim.loader的分析功能
       vim.loader._profile({ loaders = true })
     else
+      -- 旧版本使用这个备用的分析机制
       Cache._profile_loaders()
     end
   end
 
+  -- 跟踪lazy.nvim插件设置的开始
   Util.track({ plugin = "lazy.nvim" }) -- setup start
+
+  -- 测量加载核心模块所需的时间
   Util.track("module", vim.loop.hrtime() - start)
 
   -- load config
+  -- 跟踪配置加载的开始
   Util.track("config")
+
+  -- 根据opts表初始化插件配置
   Config.setup(opts)
+
+  -- 跟踪配置加载的结束
   Util.track()
 
   -- setup loader and handlers
+  -- 设定自定义加载器和任何插件管理事件处理程序
   Loader.setup()
 
   -- correct time delta and loaded
+  -- 计算并跟踪时间差
   local delta = vim.loop.hrtime() - start
   Util.track().time = delta -- end setup
+  -- 更新lazy.nvim插件信息
+  -- 加载时间设置为delta
+  -- 插件来源设置为init.lua
   if Config.plugins["lazy.nvim"] then
     Config.plugins["lazy.nvim"]._.loaded = { time = delta, source = "init.lua" }
   end
 
   -- load plugins with lazy=false or Plugin.init
+  -- 开始加载lazy=false标记的插件和具有Plugin.init()的插件
+  -- lazy=false: 这种标记的插件会在启动的时候立即被加载，而不是按需加载
+  -- Plugin.init(): 插件中包含这个函数时，会在加载的时候自动执行
   Loader.startup()
 
   -- all done!
+  -- 执行功能所有用户定义的以"LazyDone"为模式的自动命令，但不包括模式行中的自动命令。
   vim.api.nvim_exec_autocmds("User", { pattern = "LazyDone", modeline = false })
+  -- 记录一个LazyDone的性能指标
   require("lazy.stats").track("LazyDone")
 end
 
